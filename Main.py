@@ -12,7 +12,7 @@ st.title("📈 MEXC — Bull Trend Scanner")
 col1, col2 = st.sidebar, st.sidebar
 INTERVAL = col1.selectbox("Таймфрейм (candles)", ["1m", "3m", "5m", "15m", "30m", "1h"], index=2)
 TOP_N = col1.slider("Сколько пар проверять (по объёму)", 10, 300, 80)
-MIN_QUOTE_VOLUME = col1.number_input("Мин. 24h объём (USDT)", value=1000000, step=100000)
+MIN_QUOTE_VOLUME = col1.number_input("Мин. 24h объём (USDT)", value=700000, step=50000)
 SAMPLE_LIMIT = col1.slider("К-во свечей для расчёта", 10, 50, 30)
 REFRESH_BTN = col1.button("Refresh now")
 
@@ -32,7 +32,7 @@ def safe_fetch_tickers():
         st.error(f"Error with the fetch_tickers(): {e}")
         return []
 
-    rows = []
+    currencies = []
     for sym_ccxt, info in markets.items():
         try:
             sym = sym_ccxt.replace('/', '')
@@ -41,7 +41,7 @@ def safe_fetch_tickers():
                 if not qv and info.get('baseVolume') and info.get('last'):
                     qv = float(info['baseVolume']) * float(info['last'])
 
-                rows.append({
+                currencies.append({
                     'symbol_ccxt': sym_ccxt,
                     'symbol': sym,
                     'last': info.get('last'),
@@ -50,7 +50,7 @@ def safe_fetch_tickers():
         except Exception:
             continue
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(currencies)
     if df.empty:
         return []
 
