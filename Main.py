@@ -10,11 +10,12 @@ st.title("📈 MEXC — Bull Trend Scanner")
 
 # Sidebar controls
 col1, col2 = st.sidebar, st.sidebar
-INTERVAL = col1.selectbox("Таймфрейм (candles)", ["1m", "3m", "5m", "15m", "30m", "1h"], index=2)
-TOP_N = col1.slider("Сколько пар проверять (по объёму)", 10, 300, 80)
-MIN_QUOTE_VOLUME = col1.number_input("Мин. 24h объём (USDT)", value=700000, step=50000)
-SAMPLE_LIMIT = col1.slider("К-во свечей для расчёта", 10, 50, 30)
+INTERVAL = col1.selectbox("Timeframe (candles)", ["1m", "3m", "5m", "15m", "30m", "1h"], index=2)
+TOP_N = col1.slider("How many pairs check by volume", 10, 300, 80)
+MIN_QUOTE_VOLUME = col1.number_input("Min voulume for 24h (USDT)", value=700000, step=50000)
+SAMPLE_LIMIT = col1.slider("Amount of candles", 10, 50, 30)
 REFRESH_BTN = col1.button("Refresh now")
+MAX_PRICE = col1.slider("Max price (USDT)", value=10, step=1, min_value=0, max_value=100)
 
 # --- Exchange Setup ---
 EXCHANGE_ID = "mexc"
@@ -27,26 +28,27 @@ TIMEFRAME = TF_MAP[INTERVAL]
 # --- Fetch Top Pairs ---
 def safe_fetch_tickers():
     try:
-        markets = exchange.fetch_tickers()
+        tickers = exchange.fetch_tickers()
     except Exception as e:
         st.error(f"Error with the fetch_tickers(): {e}")
         return []
 
     currencies = []
-    for sym_ccxt, info in markets.items():
+    for sym_ccxt, info in tickers.items():
         try:
             sym = sym_ccxt.replace('/', '')
             if sym.endswith("USDT"):
                 qv = info.get('quoteVolume') or info.get('quoteVolume24h') or 0
                 if not qv and info.get('baseVolume') and info.get('last'):
                     qv = float(info['baseVolume']) * float(info['last'])
-
-                currencies.append({
-                    'symbol_ccxt': sym_ccxt,
-                    'symbol': sym,
-                    'last': info.get('last'),
-                    'quoteVolume': float(qv or 0)
-                })
+                last_price = info.get('last') or 0
+                if last_price <= MAX_PRICE:  # фильтр
+                    currencies.append({
+                        'symbol_ccxt': sym_ccxt,
+                        'symbol': sym,
+                        'last': info.get('last'),
+                        'quoteVolume': float(qv or 0)
+                    })
         except Exception:
             continue
 
@@ -90,15 +92,15 @@ def compute_indicators(df):
 # --- UI Layout and Display ---
 placeholder = st.empty()
 
-with st.spinner("Сканирую рынки MEXC..."):
-    markets = safe_fetch_tickers()
+with st.spinner("Scanning..."):
+    tickers = safe_fetch_tickers()
 
-    if not markets:
-        st.warning("Не удалось получить список рынков или нет подходящих USDT пар.")
+    if not tickers:
+        st.warning("No currencies found with the criteria.")
     else:
         results = []
 
-        for i, m in enumerate(markets):
+        for i, m in enumerate(tickers):
             symbol_ccxt = m['symbol_ccxt']
             last = m['last']
 
@@ -140,7 +142,7 @@ with st.spinner("Сканирую рынки MEXC..."):
         } for r in results]).sort_values(['last'], ascending=False).reset_index(drop=True)
 
         if df_ui.empty:
-            st.info("Нет данных для отображения.")
+            st.info("No data for sending")
         else:
             st.dataframe(df_ui)
 
