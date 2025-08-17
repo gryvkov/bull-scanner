@@ -15,7 +15,7 @@ TOP_N = col1.slider("How many pairs check by volume", 10, 300, 80)
 MIN_QUOTE_VOLUME = col1.number_input("Min voulume for 24h (USDT)", value=700000, step=50000)
 SAMPLE_LIMIT = col1.slider("Amount of candles", 10, 50, 30)
 REFRESH_BTN = col1.button("Refresh now")
-MAX_PRICE = col1.slider("Max price (USDT)", value=10, step=1, min_value=0, max_value=100)
+MAX_PRICE = col1.slider("Max price (USDT)", value=10.0, step=0.1, min_value=0.0, max_value=50)
 
 # --- Exchange Setup ---
 EXCHANGE_ID = "mexc"
@@ -72,7 +72,7 @@ def fetch_ohlcv(symbol_ccxt, timeframe, limit):
         return None
 
 
-# --- Compute indicators: EMA для условий и SMA для графиков ---
+# --- Compute indicators: EMA for conditions and SMA for graphics ---
 def compute_indicators(df):
     df = df.copy()
 
@@ -111,20 +111,20 @@ with st.spinner("Scanning..."):
 
             df_ind = compute_indicators(df_ohlc)
 
-            # Фильтр по EMA
+            # EMA filters
             if (
-                # EMA5 > EMA10 > EMA20 на последних 3 свечах
+                # EMA5 > EMA10 > EMA20 on the last 3 candles
                 all(df_ind['EMA5'].iloc[-i] > df_ind['EMA10'].iloc[-i] > df_ind['EMA20'].iloc[-i]
                     for i in range(2, 5))
                 and
-                # Наклон EMA положительный (растут)
+                # EMA5 and EMA10 are rising
                 df_ind['EMA5'].iloc[-2] > df_ind['EMA5'].iloc[-3]
                 and df_ind['EMA10'].iloc[-2] > df_ind['EMA10'].iloc[-3]
                 and
-                # Цена выше EMA5
+                #  EMA5 is above the close price of the previous candle
                 df_ind['close'].iloc[-2] > df_ind['EMA5'].iloc[-2]
                 and
-                # Объём выше среднего за 20 свечей
+                # Volume on the previous candle is greater than the 20-period averages
                 df_ind['volume'].iloc[-2] > df_ind['volume'].rolling(20).mean().iloc[-2]
             ):
                 results.append({
@@ -139,7 +139,9 @@ with st.spinner("Scanning..."):
             'symbol': r['symbol'],
             'last': r['last'],
             'quoteVolume24h': r['quoteVolume24h']
-        } for r in results]).sort_values(['last'], ascending=False).reset_index(drop=True)
+        } for r in results]) 
+        # .sort_values(['last'], ascending=False).reset_index(drop=True)
+
 
         if df_ui.empty:
             st.info("No data for sending")
