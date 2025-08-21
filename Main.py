@@ -1,11 +1,11 @@
 import streamlit as st
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import Config as cfg
 import Fetcher
 import ccxt
 import time
 import pandas as pd
-
 import streamlit as st
 
 # --- UI Configuration ---
@@ -25,7 +25,7 @@ with tab1:
     MIN_QUOTE_VOLUME = col1.number_input("Min voulume for 24h (USDT)", value=700000, step=50000)
     SAMPLE_LIMIT = col1.slider("Amount of candles", 10, 50, 30)
     REFRESH_BTN = col1.button("Refresh now")
-    MAX_PRICE = col1.slider("Max price (USDT)", value=10.0, step=0.1, min_value=0.0, max_value=50.0)
+    MAX_PRICE = col1.slider("Max price (USDT)", value=2.0, step=0.1, min_value=0.0, max_value=20.0)
     TIMEFRAME = cfg.TF_MAP[INTERVAL]
     EXCHANGE = getattr(ccxt, cfg.MEXC_ID)({'enableRateLimit': True})
     
@@ -63,9 +63,7 @@ with tab1:
                     and
                     #  EMA5 is above the close price of the previous candle
                     df_ind['close'].iloc[-2] > df_ind['EMA5'].iloc[-2]
-                    and
-                    # Volume on the previous candle is greater than the 20-period averages
-                    df_ind['volume'].iloc[-2] > df_ind['volume'].rolling(20).mean().iloc[-2]
+                    
                 ):
                     results.append({
                         'symbol': symbol_ccxt,
@@ -80,7 +78,7 @@ with tab1:
                 'last': r['last'],
                 'quoteVolume24h': r['quoteVolume24h']
             } for r in results]) 
-            # .sort_values(['last'], ascending=False).reset_index(drop=True)
+            
 
 
             if df_ui.empty:
@@ -93,8 +91,15 @@ with tab1:
                 st.markdown(f"### {c['symbol']}")
 
                 df_plot = c['df'].copy()
-                fig = go.Figure()
 
+                # Создаем фигуру с 2 рядами: цена (ряд 1), объем (ряд 2)
+                fig = make_subplots(
+                    rows=2, cols=1, shared_xaxes=True,
+                    row_heights=[0.7, 0.3],  # высота рядов
+                    vertical_spacing=0.05
+                )
+
+                # --- Свечи ---
                 fig.add_trace(go.Candlestick(
                     x=df_plot['dt'],
                     open=df_plot['open'],
@@ -102,16 +107,30 @@ with tab1:
                     low=df_plot['low'],
                     close=df_plot['close'],
                     name='price'
-                ))
+                ), row=1, col=1)
 
-                # На графике показываем SMA (MA5, MA10, MA20)
-                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA5'], name='MA5'))
-                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA10'], name='MA10'))
-                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA20'], name='MA20'))
+                # --- MA линии ---
+                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA5'], name='MA5'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA10'], name='MA10'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=df_plot['dt'], y=df_plot['MA20'], name='MA20'), row=1, col=1)
 
-                fig.update_layout(height=500, margin=dict(t=30))
+                # --- Объемы ---
+                fig.add_trace(go.Bar(
+                    x=df_plot['dt'],
+                    y=df_plot['volume'],
+                    name="Volume",
+                    marker_color="rgba(0, 150, 200, 0.6)"
+                ), row=2, col=1)
+
+                # Настройка осей
+                fig.update_layout(
+                    height=600,
+                    margin=dict(t=30),
+                    showlegend=True,
+                    xaxis_rangeslider_visible=False
+                )
+
                 st.plotly_chart(fig, use_container_width=True)
-
         # Manual refresh rerun
         if REFRESH_BTN:
             st.rerun()

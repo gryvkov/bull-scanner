@@ -9,29 +9,6 @@ def __init__(self, api_key: str):
     self.api_key = api_key
     self.base_url = "https://open-api.coinglass.com/api/pro/v1"
     
-# get power of market buy from CoinGlass, ratio long/short positions.
-def get_market_buy_power(self, symbol, interval = cfg.INTERVAL_BUY_POWER):
-
-    
-    
-    url = f"{self.base_url}/futures/longShortChart"
-    params = {"symbol": symbol, "interval": interval}
-    headers = {"coinglassSecret": self.api_key}
-    
-    response = requests.get(url, headers=headers, params=params)
-    response.raise_for_status()
-    data = response.json()
-    
-    if data.get("success") and "data" in data:
-        latest = data["data"][-1]  # последняя запись
-        return {
-            "time": latest["time"],
-            "long_ratio": latest["longAccount"],
-            "short_ratio": latest["shortAccount"],
-            "long_short_ratio": latest["longShortRate"]
-        }
-    return {"error": data}
-
     
 
 # --- Fetch Top Pairs ---
