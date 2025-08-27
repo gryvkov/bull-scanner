@@ -1,5 +1,4 @@
 import requests
-import Config as cfg
 import streamlit as st
 import pandas as pd
 
@@ -76,4 +75,11 @@ def compute_indicators(df):
     return df
 
 
+# --- Get short/long ratio ---
 
+def get_binance_long_short_ratio(symbol, period="5m"):
+    url = f"https://fapi.binance.com/futures/data/globalLongShortAccountRatio"
+    params = {"symbol": symbol, "period": period, "limit": 1}
+    response = requests.get(url, params=params)
+    data = response.json()
+    return data[0]['longShortRatio'] if data else None
