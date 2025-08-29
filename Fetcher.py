@@ -1,7 +1,8 @@
-import requests
 import streamlit as st
 import pandas as pd
-
+import sqlite3
+import datetime
+import Config as cfg
 
 
 def __init__(self, api_key: str):
@@ -10,7 +11,7 @@ def __init__(self, api_key: str):
     
     
 
-# --- Fetch Top Pairs ---
+# --- Fetch Pairs ---
 def safe_fetch_tickers(exchange, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE):
     
     try:
@@ -47,7 +48,7 @@ def safe_fetch_tickers(exchange, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE):
     return df.head(TOP_N).to_dict('records')
 
 
-# --- Fetch OHLCV data ---
+# --- Fetch data ---
 def fetch_ohlcv(symbol_ccxt, timeframe, limit, exchange):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol_ccxt, timeframe=timeframe, limit=limit)
@@ -74,12 +75,29 @@ def compute_indicators(df):
 
     return df
 
+# --- Function for saving volume to our database ---
+def save_price(symbol, price, volume):
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = sqlite3.connect(cfg.DB_FILE)
+    with conn:
+        conn.execute("""
+            INSERT INTO volumes_history (symbol, price, volume, date)
+            VALUES (?, ?, ?)
+        """, (symbol, price, volume, now))
+    conn.close()
 
-# --- Get short/long ratio ---
+# --- Get price + volume for the last 'hours' hours ---
+def get_volumes(symbol, hours=10):
+    from datetime import datetime, timedelta
+    since = (datetime.now() - timedelta(hours=hours)).isoformat(timespec="seconds")
 
-def get_binance_long_short_ratio(symbol, period="5m"):
-    url = f"https://fapi.binance.com/futures/data/globalLongShortAccountRatio"
-    params = {"symbol": symbol, "period": period, "limit": 1}
-    response = requests.get(url, params=params)
-    data = response.json()
-    return data[0]['longShortRatio'] if data else None
+    conn = sqlite3.connect(cfg.DB_FILE)
+    cur = conn.execute("""
+        SELECT price, volume, dt
+        FROM volumes_history
+        WHERE symbol=? AND dt >= ?
+        ORDER BY dt ASC
+    """, (symbol, since))
+    rows = cur.fetchall()
+    conn.close()
+    return rows  # список [(price, volume, dt), ...]

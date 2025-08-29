@@ -8,10 +8,28 @@ import time
 import pandas as pd
 import streamlit as st
 from datetime import datetime  
+import sqlite3
 
 # --- UI Configuration ---
 st.set_page_config(layout="wide", page_title="Scanner")
 st.title("📈 MEXC — Bull Trend Scanner")
+
+# --- Database setup ---
+def init_db():
+    conn = sqlite3.connect(cfg.DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS volumes_history (
+            symbol TEXT,
+            price REAL,
+            volume REAL,
+            date TEXT,
+            PRIMARY KEY (symbol, date)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["Top scanned", "Favorite"])
