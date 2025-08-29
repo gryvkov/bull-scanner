@@ -29,12 +29,12 @@ with tab1:
     MAX_PRICE = col1.slider("Max price (USDT)", value=2.0, step=1.0, min_value=0.0, max_value=500.0)
     TIMEFRAME = cfg.TF_MAP[INTERVAL]
     EXCHANGE = getattr(ccxt, cfg.MEXC_ID)({'enableRateLimit': True})
-    
+    tickers = Fetcher.safe_fetch_tickers(EXCHANGE, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE)
     # --- UI ---
     placeholder = st.empty()
     
     with st.spinner("Scanning..."):
-        tickers = Fetcher.safe_fetch_tickers(EXCHANGE, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE)
+        
 
         if not tickers:
             st.warning("No currencies found with the criteria.")
@@ -141,7 +141,6 @@ with tab2:
         st.session_state.favorites_history = pd.DataFrame(columns=['symbol', 'last', 'datetime'])
 
     while True:
-        tickers = Fetcher.safe_fetch_tickers(EXCHANGE, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE)
 
         for m in tickers:
             symbol_ccxt = m['symbol_ccxt']
@@ -156,8 +155,9 @@ with tab2:
 
             # --- Volume increase condition + green candle ---
             if (
-                df_ind['volume'].iloc[-1] >= 3 * df_ind['volume'].iloc[-2]
+                df_ind['volume'].iloc[-1] >= 5 * df_ind['volume'].iloc[-2]
                 and df_ind['close'].iloc[-1] > df_ind['open'].iloc[-1]
+                and df_ind['volume'].iloc[-1] > MIN_QUOTE_VOLUME
             ):
                 # --- check if symbol already in favorites
                 idx = st.session_state.favorites_history.index[
@@ -190,6 +190,8 @@ with tab2:
                 st.dataframe(st.session_state.favorites_history)
             else:
                 st.info("Пока нет монет, подходящих под условия.")
+        
+        tickers = Fetcher.safe_fetch_tickers(EXCHANGE, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE)
 
         time.sleep(5)
 
