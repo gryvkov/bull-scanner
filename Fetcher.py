@@ -5,13 +5,7 @@ import datetime
 import Config as cfg
 
 
-def __init__(self, api_key: str):
-    self.api_key = api_key
-    self.base_url = "https://open-api.coinglass.com/api/pro/v1"
-    
-    
-
-# --- Fetch Pairs ---
+# --- Fetch pairs ---
 def safe_fetch_tickers(exchange, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE):
     
     try:
@@ -39,6 +33,7 @@ def safe_fetch_tickers(exchange, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE):
         except Exception:
             continue
 
+
     df = pd.DataFrame(currencies)
     if df.empty:
         return []
@@ -47,8 +42,7 @@ def safe_fetch_tickers(exchange, TOP_N, MIN_QUOTE_VOLUME, MAX_PRICE):
     df = df[df['quoteVolume'] >= MIN_QUOTE_VOLUME]
     return df.head(TOP_N).to_dict('records')
 
-
-# --- Fetch data ---
+# --- Fetch pairs data ---
 def fetch_ohlcv(symbol_ccxt, timeframe, limit, exchange):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol_ccxt, timeframe=timeframe, limit=limit)
@@ -56,8 +50,7 @@ def fetch_ohlcv(symbol_ccxt, timeframe, limit, exchange):
         df['dt'] = pd.to_datetime(df['ts'], unit='ms')
         return df
     except Exception:
-        return None
-
+        return 
 
 # --- Compute indicators: EMA for conditions and SMA for graphics ---
 def compute_indicators(df):
@@ -77,19 +70,35 @@ def compute_indicators(df):
 
 # --- Function for saving volume to our database ---
 def save_price(symbol, price, volume):
-    now = datetime.now().isoformat(timespec="seconds")
+    now = datetime.datetime.now().isoformat(timespec="seconds")
     conn = sqlite3.connect(cfg.DB_FILE)
     with conn:
         conn.execute("""
             INSERT INTO volumes_history (symbol, price, volume, date)
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?)
         """, (symbol, price, volume, now))
+    conn.close()
+
+# --- Initialize database ---
+def init_db(db_file):
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS volumes_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            price REAL NOT NULL,
+            volume REAL NOT NULL,
+            dt TEXT NOT NULL
+        )
+    """)
+    conn.commit()
     conn.close()
 
 # --- Get price + volume for the last 'hours' hours ---
 def get_volumes(symbol, hours=10):
     from datetime import datetime, timedelta
-    since = (datetime.now() - timedelta(hours=hours)).isoformat(timespec="seconds")
+    since = (datetime.datetime.now() - timedelta(hours=hours)).isoformat(timespec="seconds")
 
     conn = sqlite3.connect(cfg.DB_FILE)
     cur = conn.execute("""
@@ -101,3 +110,5 @@ def get_volumes(symbol, hours=10):
     rows = cur.fetchall()
     conn.close()
     return rows  # список [(price, volume, dt), ...]
+
+
